@@ -16,6 +16,7 @@ function NegociarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tickerInicial = searchParams.get("ticker") ?? "PETR4";
+  const abrirAlertaInicial = searchParams.get("abrirAlerta") === "1";
 
   const { ativos } = usePortfolio();
   const [ticker, setTicker] = useState(tickerInicial);
@@ -24,9 +25,8 @@ function NegociarContent() {
   useEffect(() => {
     const q = searchParams.get("ticker");
     if (q && q !== ticker) setTicker(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
-
-  const ativo = ativos.find((a) => a.ticker === ticker);
 
   const trocarTicker = (novoTicker: string) => {
     setTicker(novoTicker);
@@ -34,46 +34,19 @@ function NegociarContent() {
   };
 
   return (
-    <div className="space-y-6 stagger">
-      {/* Seletor de ativo */}
-      <div className="glass-card rounded-xl p-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <label className="text-xs text-ink-muted uppercase tracking-wider">
-            Selecionar ativo:
-          </label>
-          <select
-            value={ticker}
-            onChange={(e) => trocarTicker(e.target.value)}
-            className="bg-navy-800 border border-rule rounded-md px-3 py-2 text-sm font-medium min-w-[200px] focus:border-brand focus:outline-none"
-          >
-            {ativos.map((a) => (
-              <option key={a.ticker} value={a.ticker}>
-                {a.ticker} — {a.nome}
-              </option>
-            ))}
-          </select>
-
-          {ativo && (
-            <div className="flex items-center gap-3 ml-auto">
-              <span className="text-xs px-2 py-1 rounded bg-navy-800 border border-rule text-ink-muted">
-                {categoriaLabel(ativo.categoria)}
-              </span>
-              <span className="text-sm text-ink-muted">{ativo.setor}</span>
-            </div>
-          )}
+    <div className="stagger">
+      {/* Layout 70/30: gráfico + lista lateral */}
+      <div className="grid grid-cols-1 xl:grid-cols-[7fr_3fr] gap-4">
+        <div className="min-w-0">
+          <AssetAnalysis ticker={ticker} abrirAlertaInicialmente={abrirAlertaInicial} />
         </div>
+        <AssetSidebarList atual={ticker} onSelecionar={trocarTicker} />
       </div>
-
-      {/* Análise do ativo */}
-      <AssetAnalysis ticker={ticker} />
-
-      {/* Atalhos para outros ativos */}
-      <RelatedAssets atual={ticker} onSelecionar={trocarTicker} />
     </div>
   );
 }
 
-function RelatedAssets({
+function AssetSidebarList({
   atual,
   onSelecionar,
 }: {
@@ -93,7 +66,6 @@ function RelatedAssets({
     { key: "cripto", label: "Cripto" },
   ];
 
-  // TODOS os ativos disponíveis (mesma fonte da aba Mercados)
   const lista = useMemo(() => {
     let result = ativos;
     if (filtroCat !== "todos")
@@ -111,41 +83,18 @@ function RelatedAssets({
   }, [ativos, filtroCat, busca]);
 
   return (
-    <div className="glass-card rounded-xl p-5">
-      <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
-        <div>
-          <h3 className="text-sm font-semibold">
-            Todos os ativos disponíveis
-          </h3>
-          <p className="text-xs text-ink-muted mt-0.5">
-            Mesma lista da aba Mercados · clique para analisar
-          </p>
-        </div>
-        <span className="text-xs text-ink-muted">
-          {lista.length} de {ativos.length}
-        </span>
+    <aside className="glass-card rounded-xl flex flex-col xl:max-h-[calc(100vh-150px)] xl:sticky xl:top-4">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-rule">
+        <h3 className="text-sm font-semibold">Ativos disponíveis</h3>
+        <p className="text-[11px] text-ink-muted mt-0.5">
+          {lista.length} de {ativos.length} · clique para analisar
+        </p>
       </div>
 
-      {/* Filtros + busca */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <div className="flex flex-wrap gap-1.5">
-          {filtros.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFiltroCat(f.key)}
-              className={classNames(
-                "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
-                filtroCat === f.key
-                  ? "bg-brand text-white"
-                  : "bg-navy-800 text-ink-muted hover:text-ink border border-rule",
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex-1 md:max-w-xs md:ml-auto relative">
+      {/* Busca */}
+      <div className="px-4 pt-3">
+        <div className="relative">
           <svg
             width="14"
             height="14"
@@ -158,7 +107,7 @@ function RelatedAssets({
           </svg>
           <input
             type="text"
-            placeholder="Buscar ticker, nome ou setor..."
+            placeholder="Buscar ticker, nome..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             className="w-full bg-navy-800 border border-rule rounded-md pl-8 pr-3 py-1.5 text-xs focus:border-brand focus:outline-none"
@@ -166,61 +115,92 @@ function RelatedAssets({
         </div>
       </div>
 
-      {lista.length === 0 ? (
-        <div className="text-center py-8 text-sm text-ink-muted">
-          Nenhum ativo encontrado com esses filtros.
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5">
-          {lista.map((a) => {
-            const positivo = a.variacaoDia >= 0;
-            const ehAtual = a.ticker === atual;
-            return (
-              <button
-                key={a.ticker}
-                onClick={() => onSelecionar(a.ticker)}
-                className={classNames(
-                  "text-left px-3 py-3 border rounded-md transition-colors",
-                  ehAtual
-                    ? "bg-brand/15 border-brand"
-                    : "bg-navy-800/50 border-rule hover:border-brand",
-                )}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div
-                    className={classNames(
-                      "font-semibold text-sm",
-                      ehAtual && "text-brand",
-                    )}
-                  >
-                    {a.ticker}
-                    {ehAtual && (
-                      <span className="ml-1 text-[9px] uppercase tracking-wider text-brand">
-                        atual
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[9px] uppercase tracking-wider text-ink-dim">
-                    {categoriaLabel(a.categoria)}
-                  </span>
-                </div>
-                <div className="text-xs num text-ink-muted truncate">
-                  {formatBRL(a.preco)}
-                </div>
-                <div
+      {/* Filtros por categoria */}
+      <div className="px-4 py-3 flex flex-wrap gap-1.5">
+        {filtros.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFiltroCat(f.key)}
+            className={classNames(
+              "px-2 py-0.5 text-[11px] font-medium rounded-md transition-colors",
+              filtroCat === f.key
+                ? "bg-brand text-white"
+                : "bg-navy-800 text-ink-muted hover:text-ink border border-rule",
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Lista scrollável */}
+      <div className="flex-1 overflow-y-auto px-2 pb-3 min-h-0">
+        {lista.length === 0 ? (
+          <div className="text-center py-6 text-xs text-ink-muted">
+            Nenhum ativo encontrado.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {lista.map((a) => {
+              const positivo = a.variacaoDia >= 0;
+              const ehAtual = a.ticker === atual;
+              return (
+                <button
+                  key={a.ticker}
+                  onClick={() => onSelecionar(a.ticker)}
                   className={classNames(
-                    "text-xs num font-medium mt-0.5",
-                    positivo ? "text-up" : "text-down",
+                    "text-left px-3 py-2.5 border rounded-md transition-colors flex items-center gap-3",
+                    ehAtual
+                      ? "bg-brand/15 border-brand"
+                      : "bg-transparent border-transparent hover:bg-navy-800/50 hover:border-rule",
                   )}
                 >
-                  {formatPercent(a.variacaoDia)}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+                  {/* Ticker e categoria */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-1.5">
+                      <span
+                        className={classNames(
+                          "font-semibold text-sm",
+                          ehAtual && "text-brand",
+                        )}
+                      >
+                        {a.ticker}
+                      </span>
+                      {ehAtual && (
+                        <span className="text-[9px] uppercase tracking-wider text-brand font-medium">
+                          atual
+                        </span>
+                      )}
+                      <span className="text-[9px] uppercase tracking-wider text-ink-dim ml-auto">
+                        {categoriaLabel(a.categoria)}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-ink-muted truncate mt-0.5">
+                      {a.nome}
+                    </div>
+                  </div>
+
+                  {/* Preço e variação */}
+                  <div className="text-right shrink-0">
+                    <div className="text-xs num text-ink font-medium">
+                      {formatBRL(a.preco)}
+                    </div>
+                    <div
+                      className={classNames(
+                        "text-[10px] num font-semibold mt-0.5",
+                        positivo ? "text-up" : "text-down",
+                      )}
+                    >
+                      {formatPercent(a.variacaoDia)}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </aside>
   );
 }
 

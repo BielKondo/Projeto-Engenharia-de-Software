@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { usePortfolio } from "@/contexts/PortfolioContext";
 import {
   formatBRL,
@@ -16,6 +17,7 @@ import { AlertModal } from "./AlertModal";
 
 interface Props {
   ticker: string;
+  abrirAlertaInicialmente?: boolean;
 }
 
 const timeframes: { key: Timeframe; label: string; dias: number | "tudo" }[] = [
@@ -26,12 +28,19 @@ const timeframes: { key: Timeframe; label: string; dias: number | "tudo" }[] = [
   { key: "TUDO", label: "TUDO", dias: "tudo" },
 ];
 
-export function AssetAnalysis({ ticker }: Props) {
+export function AssetAnalysis({
+  ticker,
+  abrirAlertaInicialmente = false,
+}: Props) {
+  const router = useRouter();
   const { ativos, estado } = usePortfolio();
   const [tf, setTf] = useState<Timeframe>("6M");
   const [modal, setModal] = useState<{
     tipo: "compra" | "venda" | "alerta";
   } | null>(null);
+  // Destaque visual do botão "Criar alerta" quando o usuário acabou de vir de Relatórios
+  const [destacarBotaoAlerta, setDestacarBotaoAlerta] = useState(false);
+  const abrirAlertaProcessadoRef = useRef(false);
 
   const ativo = ativos.find((a) => a.ticker === ticker);
 
@@ -41,6 +50,27 @@ export function AssetAnalysis({ ticker }: Props) {
     if (cfg.dias === "tudo") return ativo.historico;
     return ativo.historico.slice(-cfg.dias);
   }, [ativo, tf]);
+
+  // Quando vem de Relatórios com ?abrirAlerta=1, abre o modal automaticamente
+  // e remove o parâmetro da URL pra não reabrir em refresh.
+  useEffect(() => {
+    if (!abrirAlertaInicialmente || abrirAlertaProcessadoRef.current) return;
+    abrirAlertaProcessadoRef.current = true;
+
+    setDestacarBotaoAlerta(true);
+    // Pequeno delay pra animação iniciar e o usuário enxergar o botão pulsando
+    const t1 = setTimeout(() => setModal({ tipo: "alerta" }), 900);
+    // Tira o destaque depois de um tempo
+    const t2 = setTimeout(() => setDestacarBotaoAlerta(false), 3500);
+    // Limpa a query string
+    router.replace(`/negociar?ticker=${ticker}`, { scroll: false });
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirAlertaInicialmente]);
 
   if (!ativo) return null;
 
@@ -160,7 +190,12 @@ export function AssetAnalysis({ ticker }: Props) {
 
             <button
               onClick={() => setModal({ tipo: "alerta" })}
-              className="w-full border border-rule hover:border-brand hover:text-brand transition-colors text-ink-muted font-medium py-2 rounded-md text-xs flex items-center justify-center gap-2"
+              className={classNames(
+                "w-full border transition-all font-medium py-2 rounded-md text-xs flex items-center justify-center gap-2 relative",
+                destacarBotaoAlerta
+                  ? "border-brand text-brand bg-brand/10 ring-2 ring-brand/50 animate-pulse"
+                  : "border-rule hover:border-brand hover:text-brand text-ink-muted",
+              )}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path
@@ -172,6 +207,11 @@ export function AssetAnalysis({ ticker }: Props) {
                 />
               </svg>
               Criar alerta de preço
+              {destacarBotaoAlerta && (
+                <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-brand text-white text-[9px] font-bold rounded-full uppercase tracking-wider animate-bounce">
+                  Aqui!
+                </span>
+              )}
             </button>
 
             {/* Detalhes */}

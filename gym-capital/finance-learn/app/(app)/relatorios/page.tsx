@@ -9,6 +9,7 @@ import {
 } from "@/lib/formatters";
 import { MetasSection } from "@/components/MetasSection";
 import { AlertsList } from "@/components/AlertsList";
+import { PatrimonioWaterfall } from "@/components/PatrimonioWaterfall";
 
 type FiltroTipo = "todos" | "compra" | "venda";
 
@@ -42,6 +43,9 @@ export default function RelatoriosPage() {
 
   return (
     <div className="space-y-6 stagger">
+      {/* Por que meu patrimônio mudou? */}
+      <PatrimonioWaterfall />
+
       {/* Metas Financeiras */}
       <MetasSection />
 
