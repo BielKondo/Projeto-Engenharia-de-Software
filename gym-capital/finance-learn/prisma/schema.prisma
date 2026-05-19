@@ -1,33 +1,48 @@
-// Schema Prisma do GYM Capital
-// Banco: SQLite (file local). Para PostgreSQL em produção,
-// basta trocar `provider = "sqlite"` por `provider = "postgresql"`
-// e ajustar a DATABASE_URL.
+// ============================================================
+// SCHEMA DO BANCO DE DADOS — GYM CAPITAL
+// ============================================================
+//
+// Banco: PostgreSQL via Supabase
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
+
+// ============================================================
+// USUÁRIO — cadastro, login e preferências
+// ============================================================
 
 model User {
   id              String   @id @default(cuid())
   nome            String
   email           String   @unique
-  senhaHash       String
-  dataNascimento  DateTime
-  cpf             String?  @unique // opcional, mas único quando presente
-  aceitouTermos   Boolean  @default(false)
-  criadoEm        DateTime @default(now())
-  atualizadoEm    DateTime @updatedAt
+  senhaHash       String   // bcrypt (nunca a senha em texto puro)
+  dataNascimento DateTime
+  cpf             String?  @unique
 
-  // Relacionamentos para futura migração dos dados (hoje em localStorage)
+  // Preferências de exibição
+  idioma          String   @default("pt-BR")  // "pt-BR", "en-US", "es-ES"
+  moeda           String   @default("BRL")    // "BRL", "USD", "EUR"
+  avatarUrl       String?  @db.Text           // foto em base64 ou URL
+
+  aceitouTermos  Boolean  @default(false)
+  criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
+
   sessoes         Sessao[]
 
   @@index([email])
 }
+
+// ============================================================
+// SESSÃO — preparada caso queiram persistir sessões no futuro
+// ============================================================
 
 model Sessao {
   id         String   @id @default(cuid())

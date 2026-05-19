@@ -1,36 +1,51 @@
+/**
+ * MIDDLEWARE DE AUTENTICAÇÃO
+ * ============================================================
+ * Roda ANTES de qualquer página carregar. Verifica se o usuário
+ * está logado (via cookie de sessão) e:
+ *
+ *   - Se NÃO está logado e tenta acessar rota privada → /login
+ *   - Se ESTÁ logado e tenta acessar /login ou /cadastro → /
+ *
+ * As únicas rotas que dispensam autenticação são:
+ *   - /login, /cadastro (páginas públicas)
+ *   - /api/auth/login, /api/auth/cadastro (endpoints públicos)
+ *   - Arquivos estáticos (_next, favicon)
+ */
 import { NextResponse, type NextRequest } from "next/server";
-import { verificarToken, SESSION_COOKIE_NAME } from "./lib/auth/session";
+import { verificarToken, SESSION_COOKIE_NAME } from "./src/server/auth";
 
 const ROTAS_PUBLICAS = ["/login", "/cadastro"];
-const ROTAS_API_PUBLICAS = ["/api/auth/login", "/api/auth/cadastro"];
+const API_PUBLICAS = ["/api/auth/login", "/api/auth/cadastro"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Permite arquivos estáticos, _next, e APIs públicas
+  // Deixa passar: assets estáticos e APIs de login/cadastro
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
-    ROTAS_API_PUBLICAS.some((p) => pathname.startsWith(p))
+    API_PUBLICAS.some((p) => pathname.startsWith(p))
   ) {
     return NextResponse.next();
   }
 
+  // Verifica se há sessão válida
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   const session = token ? await verificarToken(token) : null;
 
-  const ehRotaPublica = ROTAS_PUBLICAS.some((p) => pathname.startsWith(p));
+  const ehPublica = ROTAS_PUBLICAS.some((p) => pathname.startsWith(p));
 
-  // Usuário NÃO logado tentando acessar rota privada → /login
-  if (!session && !ehRotaPublica) {
+  // Não logado tentando rota privada → /login
+  if (!session && !ehPublica) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
-  // Usuário JÁ logado em rota pública → manda pro dashboard
-  if (session && ehRotaPublica) {
+  // Já logado tentando /login ou /cadastro → vai pro dashboard
+  if (session && ehPublica) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
@@ -40,12 +55,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match em tudo, exceto:
-     * - api/auth (são tratadas internamente acima quando públicas)
-     * - _next/static, _next/image, favicon (assets)
-     */
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
