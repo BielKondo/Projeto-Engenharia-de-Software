@@ -1,0 +1,42 @@
+// Schema Prisma do GYM Capital
+// Banco: SQLite (file local). Para PostgreSQL em produção,
+// basta trocar `provider = "sqlite"` por `provider = "postgresql"`
+// e ajustar a DATABASE_URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  nome            String
+  email           String   @unique
+  senhaHash       String
+  dataNascimento  DateTime
+  cpf             String?  @unique // opcional, mas único quando presente
+  aceitouTermos   Boolean  @default(false)
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  // Relacionamentos para futura migração dos dados (hoje em localStorage)
+  sessoes         Sessao[]
+
+  @@index([email])
+}
+
+model Sessao {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @unique
+  expiraEm   DateTime
+  criadaEm   DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
