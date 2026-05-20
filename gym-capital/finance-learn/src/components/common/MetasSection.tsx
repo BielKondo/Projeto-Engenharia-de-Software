@@ -234,7 +234,10 @@ function MetaCard({
                   : "text-ink-muted",
             )}
           >
-            {progresso.toFixed(1)}%
+            {/* Quando completa, mostra "100%+" ao invés de valores absurdos
+                como "183.5%" que confundem visualmente. O valor que excedeu
+                aparece em texto separado abaixo. */}
+            {completa ? "100%+" : `${progresso.toFixed(1)}%`}
           </span>
         </div>
 
@@ -250,6 +253,27 @@ function MetaCard({
             )}
             style={{ width: `${progressoClampado}%` }}
           />
+        </div>
+
+        {/* Texto de valor faltante OU valor que superou o alvo.
+            Antes da correção, "Faltam R$ X" mostrava valor negativo quando
+            o usuário ultrapassava a meta — agora o texto muda de cor e
+            mensagem dependendo do estado, transformando o bug em
+            celebração da conquista. */}
+        <div className="text-[11px] mt-0.5">
+          {completa ? (
+            <span className="text-up font-medium">
+              Meta atingida! Superou em {formatBRL(atual - meta.valorAlvo)}
+            </span>
+          ) : (
+            <span className="text-ink-muted">
+              Faltam{" "}
+              <span className="text-ink font-medium num">
+                {formatBRL(meta.valorAlvo - atual)}
+              </span>{" "}
+              para alcançar a meta
+            </span>
+          )}
         </div>
 
         <div className="flex items-center justify-between text-[11px] mt-1">
@@ -277,7 +301,7 @@ function MetaCard({
             )}
           >
             {completa
-              ? "✓ Meta atingida!"
+              ? "Meta atingida!"
               : atrasada
                 ? `Atrasada há ${Math.abs(diasRestantes)}d`
                 : diasRestantes === 0

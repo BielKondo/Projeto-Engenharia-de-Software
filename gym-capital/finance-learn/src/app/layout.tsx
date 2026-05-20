@@ -23,6 +23,13 @@ export const metadata: Metadata = {
     "Plataforma de educação financeira e simulador de investimentos da G.Y.M.",
 };
 
+// Força o layout a renderizar dinamicamente em CADA requisição.
+// Sem isso, o Next.js pode reaproveitar o resultado SSR de uma navegação
+// anterior, fazendo o `usuarioInicial` ficar congelado mesmo após login,
+// logout, ou edição do perfil.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Busca usuário logado server-side para evitar flash de UI não autenticada
 async function buscarUsuarioLogado(): Promise<Usuario | null> {
   const cookie = cookies().get(SESSION_COOKIE_NAME);

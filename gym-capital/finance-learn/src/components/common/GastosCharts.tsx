@@ -40,25 +40,45 @@ export function GastosCharts() {
       .sort((a, b) => b.valor - a.valor);
   }, [estado.gastos, mesAtualISO]);
 
-  // Últimos 6 meses (incluindo o atual), considerando recorrências
+  // Últimos 6 meses + atual + próximos 6 meses (13 no total)
+  // Permite visualizar o impacto de gastos recorrentes ao longo do tempo.
+  // Meses futuros refletem apenas os gastos RECORRENTES (mensais/anuais) já
+  // cadastrados — gastos únicos não se projetam.
   const dadosMensais = useMemo(() => {
     const hoje = new Date();
-    const meses: { mesISO: string; label: string; total: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const meses: {
+      mesISO: string;
+      label: string;
+      total: number;
+      tipo: "passado" | "atual" | "futuro";
+    }[] = [];
+
+    // De -6 a +6 (treze meses): atual no meio, passado à esquerda, futuro à direita
+    for (let offset = -6; offset <= 6; offset++) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() + offset, 1);
       const mesISO = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = d.toLocaleDateString("pt-BR", { month: "short" });
       const total = estado.gastos.reduce(
         (acc, g) => (gastoOcorreNoMes(g, mesISO) ? acc + g.valor : acc),
         0,
       );
-      meses.push({ mesISO, label, total });
+      const tipo: "passado" | "atual" | "futuro" =
+        offset === 0 ? "atual" : offset < 0 ? "passado" : "futuro";
+      meses.push({ mesISO, label, total, tipo });
     }
     return meses;
   }, [estado.gastos]);
 
   const totalGeral = dadosCategoria.reduce((a, b) => a + b.valor, 0);
   const maxMensal = Math.max(...dadosMensais.map((m) => m.total), 1);
+
+  // Média considerando apenas meses já vividos (6 passados + atual),
+  // pra não distorcer com projeções futuras.
+  const mediaMensalRealizada = useMemo(() => {
+    const realizados = dadosMensais.filter((m) => m.tipo !== "futuro");
+    if (realizados.length === 0) return 0;
+    return realizados.reduce((a, b) => a + b.total, 0) / realizados.length;
+  }, [dadosMensais]);
 
   if (estado.gastos.length === 0) {
     return (
@@ -106,22 +126,39 @@ export function GastosCharts() {
       {/* Barras por mês */}
       <div className="glass-card rounded-xl p-5">
         <h3 className="text-base font-semibold mb-1">Gastos por Mês</h3>
-        <p className="text-xs text-ink-muted mb-5">
-          Últimos 6 meses
+        <p className="text-xs text-ink-muted mb-3">
+          6 meses passados, atual e 6 meses futuros (projeção de recorrentes)
         </p>
 
-        <div className="space-y-2">
+        {/* Legenda de cores */}
+        <div className="flex items-center gap-4 mb-4 text-[10px] text-ink-muted">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-navy-600" />
+            Passado
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-gradient-to-r from-brand to-brand-soft" />
+            Atual
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm bg-brand/30 border border-brand/40" />
+            Projeção
+          </span>
+        </div>
+
+        <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
           {dadosMensais.map((m) => {
-            const w = (m.total / maxMensal) * 100;
-            const ehAtual =
-              m.mesISO ===
-              `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+            const w = maxMensal > 0 ? (m.total / maxMensal) * 100 : 0;
             return (
               <div key={m.mesISO} className="flex items-center gap-3">
                 <div
                   className={classNames(
-                    "w-10 text-xs uppercase shrink-0",
-                    ehAtual ? "text-brand font-semibold" : "text-ink-muted",
+                    "w-14 text-[11px] uppercase shrink-0",
+                    m.tipo === "atual"
+                      ? "text-brand font-semibold"
+                      : m.tipo === "futuro"
+                        ? "text-ink-muted italic"
+                        : "text-ink-muted",
                   )}
                 >
                   {m.label}
@@ -130,9 +167,11 @@ export function GastosCharts() {
                   <div
                     className={classNames(
                       "h-full transition-all duration-700",
-                      ehAtual
+                      m.tipo === "atual"
                         ? "bg-gradient-to-r from-brand to-brand-soft"
-                        : "bg-navy-600",
+                        : m.tipo === "futuro"
+                          ? "bg-brand/30 border-r border-brand/40"
+                          : "bg-navy-600",
                     )}
                     style={{ width: `${w}%` }}
                   />
@@ -148,11 +187,11 @@ export function GastosCharts() {
         </div>
 
         <div className="mt-5 pt-4 border-t border-rule text-xs flex items-baseline justify-between">
-          <span className="text-ink-muted">Média mensal</span>
+          <span className="text-ink-muted">
+            Média (últimos 6 + atual)
+          </span>
           <span className="font-semibold num">
-            {formatBRL(
-              dadosMensais.reduce((a, b) => a + b.total, 0) / 6,
-            )}
+            {formatBRL(mediaMensalRealizada)}
           </span>
         </div>
       </div>

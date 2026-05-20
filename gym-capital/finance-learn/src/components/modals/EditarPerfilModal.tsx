@@ -76,14 +76,24 @@ export function EditarPerfilModal({ aberto, onFechar }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setErros((prev) => ({ ...prev, avatarUrl: "Arquivo precisa ser uma imagem" }));
-      return;
-    }
-    if (file.size > TAMANHO_MAXIMO_AVATAR_BYTES) {
       setErros((prev) => ({
         ...prev,
-        avatarUrl: "Imagem muito grande (máximo 1.5MB)",
+        avatarUrl: "Arquivo precisa ser uma imagem (JPG, PNG, etc).",
       }));
+      // Limpa o input pra permitir reselecionar o mesmo arquivo se necessário
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    // Validação de tamanho ANTES do envio: orienta o usuário em vez de
+    // só dizer "deu erro". O tamanho informado em MB ajuda a entender
+    // a ordem de grandeza do problema.
+    if (file.size > TAMANHO_MAXIMO_AVATAR_BYTES) {
+      const tamanhoMB = (file.size / 1024 / 1024).toFixed(1);
+      setErros((prev) => ({
+        ...prev,
+        avatarUrl: `Imagem muito grande (${tamanhoMB} MB). O limite é 1.5 MB — tente uma foto menor ou comprima a imagem antes de enviar.`,
+      }));
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -95,6 +105,12 @@ export function EditarPerfilModal({ aberto, onFechar }: Props) {
         const { avatarUrl: _, ...rest } = prev;
         return rest;
       });
+    };
+    reader.onerror = () => {
+      setErros((prev) => ({
+        ...prev,
+        avatarUrl: "Não foi possível ler o arquivo. Tente outra imagem.",
+      }));
     };
     reader.readAsDataURL(file);
   };
@@ -285,10 +301,10 @@ export function EditarPerfilModal({ aberto, onFechar }: Props) {
                   )}
                 >
                   {idadeValida
-                    ? `✓ ${idade} ${t("perfil.anos")}`
+                    ? `${idade} ${t("perfil.anos")}`
                     : idade < IDADE_MINIMA
-                      ? `⚠ ${t("msg.idadeApenas", { idade, minimo: IDADE_MINIMA })}`
-                      : "⚠ Data inválida"}
+                      ? t("msg.idadeApenas", { idade, minimo: IDADE_MINIMA })
+                      : "Data inválida"}
                 </div>
               )}
             </Campo>

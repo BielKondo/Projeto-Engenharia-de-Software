@@ -6,6 +6,7 @@ import { CATEGORIAS_GASTOS } from "@/data/expense-categories";
 import { classNames } from "@/utils/format";
 import type { Gasto, Recorrencia, TipoGasto } from "@/types";
 import { Portal } from "./Portal";
+import { MoneyInput } from "@/components/common/MoneyInput";
 
 interface Props {
   gastoInicial?: Gasto;
@@ -16,7 +17,11 @@ export function GastoModal({ gastoInicial, onClose }: Props) {
   const { adicionarGasto, editarGasto } = useGastos();
   const ehEdicao = !!gastoInicial;
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  // Data padrão = hoje no fuso local do navegador.
+  // toISOString() converte para UTC, o que em São Paulo (UTC-3) pode "pular"
+  // para o dia seguinte depois das 21h. Usamos Intl.DateTimeFormat para
+  // garantir a data local exata.
+  const hoje = formatarDataLocalISO(new Date());
 
   const [titulo, setTitulo] = useState(gastoInicial?.titulo ?? "");
   const [valor, setValor] = useState(
@@ -105,14 +110,11 @@ export function GastoModal({ gastoInicial, onClose }: Props) {
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Valor (R$)">
-              <input
-                type="text"
-                inputMode="decimal"
+            <Field label="Valor">
+              <MoneyInput
                 value={valor}
-                onChange={(e) => setValor(e.target.value)}
+                onValueChange={setValor}
                 placeholder="0,00"
-                className="w-full bg-navy-800 border border-rule rounded-md px-3 py-2.5 text-sm num focus:border-brand focus:outline-none"
               />
             </Field>
 
@@ -251,4 +253,15 @@ function Field({
       {children}
     </div>
   );
+}
+
+/**
+ * Retorna a data atual no formato YYYY-MM-DD usando o fuso horário LOCAL
+ * do navegador, evitando o problema de toISOString() que converte para UTC.
+ */
+function formatarDataLocalISO(d: Date): string {
+  const ano = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
 }

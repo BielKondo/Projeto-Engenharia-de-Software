@@ -16,6 +16,11 @@ import {
 } from "@/server/auth";
 import { editarPerfilSchema } from "@/server/validations";
 
+// Garante que este endpoint NUNCA seja cacheado — sempre busca dados frescos
+// do banco. Crítico para o perfil refletir mudanças imediatas após edição.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * Verifica se há um cookie de sessão válido e retorna o ID do usuário.
  * Retorna null se não houver sessão ou se o token for inválido.

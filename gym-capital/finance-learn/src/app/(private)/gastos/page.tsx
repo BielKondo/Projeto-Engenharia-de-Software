@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useGastos } from "@/state/expenses";
+import { useGastos, gastoOcorreNoMes } from "@/state/expenses";
 import {
   CATEGORIAS_GASTOS,
   categoriaGastoPorId,
@@ -32,7 +32,9 @@ export default function GastosPage() {
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>("todos");
   const [busca, setBusca] = useState("");
 
-  const hojeISO = new Date().toISOString().slice(0, 7); // YYYY-MM
+  // Mês atual no formato YYYY-MM (fuso local, não UTC)
+  const agora = new Date();
+  const hojeISO = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
   const gastosDoMes = totalGastosMes(hojeISO);
   const sobra = totalRenda - gastosDoMes;
   const taxaGasto = totalRenda > 0 ? (gastosDoMes / totalRenda) * 100 : 0;
@@ -210,14 +212,27 @@ export default function GastosPage() {
               <tbody>
                 {gastosFiltrados.map((g) => {
                   const cat = categoriaGastoPorId(g.categoria);
+                  const contaNoMesAtual = gastoOcorreNoMes(g, hojeISO);
                   return (
                     <tr
                       key={g.id}
                       className="border-b border-rule-soft hover:bg-navy-800/30 transition-colors group"
                     >
                       <td className="px-5 py-3">
-                        <div className="font-medium text-sm text-ink">
-                          {g.titulo}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm text-ink">
+                            {g.titulo}
+                          </span>
+                          {/* Tag visual quando o gasto recorrente ainda não começou
+                              a ser contabilizado no mês atual (data de início futura) */}
+                          {!contaNoMesAtual && g.tipo === "recorrente" && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md bg-ink-muted/15 text-ink-muted border border-ink-muted/20 uppercase tracking-wider"
+                              title="Este gasto recorrente começa em um mês futuro e ainda não está contabilizado no mês atual."
+                            >
+                              Inicia em {formatarMesCurto(g.data)}
+                            </span>
+                          )}
                         </div>
                         {g.observacao && (
                           <div className="text-[10px] text-ink-muted mt-0.5 line-clamp-1">
@@ -319,4 +334,15 @@ function KpiCard({
       <div className="text-[10px] text-ink-dim mt-1">{desc}</div>
     </div>
   );
+}
+
+/**
+ * Formata uma data ISO (YYYY-MM-DD) como nome curto do mês.
+ * Exemplo: "2026-06-01" → "jun. 2026"
+ */
+function formatarMesCurto(iso: string): string {
+  const [ano, mes] = iso.split("-");
+  const data = new Date(Number(ano), Number(mes) - 1, 1);
+  const label = data.toLocaleDateString("pt-BR", { month: "short" });
+  return `${label} ${ano}`;
 }

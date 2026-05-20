@@ -144,7 +144,8 @@ export interface Gasto {
   titulo: string;
   valor: number;
   categoria: string;      // id da categoria (ex: "moradia")
-  data: string;           // ISO date
+  data: string;           // ISO date — para únicos é a data do gasto; para recorrentes, o dia/mês do vencimento
+  criadoEm?: string;      // ISO datetime de quando o usuário cadastrou (usado para recorrentes começarem a contar do mês certo)
   tipo: TipoGasto;
   recorrencia?: Recorrencia;
   observacao?: string;

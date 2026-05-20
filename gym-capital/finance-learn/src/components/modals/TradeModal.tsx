@@ -290,6 +290,25 @@ export function TradeModal({ ticker, tipo, onClose }: Props) {
                       </span>
                     )}
                   </div>
+                  {/* Aviso visual quando a quantidade ultrapassa o caixa/posição.
+                      Reforça o feedback do botão desabilitado, deixando claro
+                      ao usuário o motivo do bloqueio. */}
+                  {qty > maxQty && (
+                    <div className="mt-2 text-xs text-down bg-down/10 border border-down/30 rounded-md px-2.5 py-2">
+                      {ehCompra ? (
+                        <>
+                          <strong>Saldo insuficiente.</strong> Faltam{" "}
+                          {formatBRL(total - estado.caixa)} para essa operação.
+                          O máximo possível com seu caixa atual é {maxQty} {maxQty === 1 ? "ação" : "ações"}.
+                        </>
+                      ) : (
+                        <>
+                          <strong>Quantidade indisponível.</strong> Você possui apenas{" "}
+                          {maxQty} {maxQty === 1 ? "ação" : "ações"} desse ativo em carteira.
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Resumo */}

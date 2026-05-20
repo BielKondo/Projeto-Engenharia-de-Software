@@ -114,6 +114,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const { adicionar: adicionarNotif } = useNotifications();
   // Snapshot dos preços anteriores para detectar cruzamentos de alerta
   const precosAnterioresRef = useRef<Record<string, number>>({});
+  // Lock de IDs de alertas que JÁ dispararam neste ciclo de vida do app.
+  // Funciona como segunda camada de proteção contra disparos duplicados,
+  // complementando o flag `atingido` persistido no estado.
+  const disparosEmAndamentoRef = useRef<Set<string>>(new Set());
 
   // ============================================================
   // PERSISTÊNCIA — carrega e salva no localStorage
@@ -216,7 +220,18 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   // ALERTAS DE PREÇO — dispara quando o preço cruza o alvo
   // ============================================================
 
-  // Verifica alertas a cada mudança de preço
+  // Verifica alertas a cada mudança de preço.
+  //
+  // PROTEÇÃO CONTRA DISPAROS DUPLICADOS:
+  // - Cada alerta tem um campo `atingido` que vira true após o primeiro disparo.
+  //   Alertas atingidos são ignorados nas verificações seguintes (early return).
+  // - O cruzamento só é detectado quando o preço anterior está de um lado do
+  //   alvo e o atual do outro — isso garante que oscilações em torno do alvo
+  //   (preço entrando e saindo várias vezes da zona alvo) não disparem o mesmo
+  //   alerta repetidas vezes.
+  // - A ref `disparosEmAndamentoRef` funciona como um "lock" adicional para
+  //   prevenir race conditions caso o useEffect rode duas vezes em ticks muito
+  //   próximos antes do setEstado refletir no próximo render.
   useEffect(() => {
     if (!hidratado) return;
     if (estado.alertas.length === 0) return;
@@ -225,7 +240,13 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     const idsAtingidos: string[] = [];
 
     estado.alertas.forEach((alerta) => {
+      // Já foi atingido em verificação anterior → ignora
       if (alerta.atingido) {
+        novos.push(alerta);
+        return;
+      }
+      // Lock para evitar disparo duplo em ticks consecutivos
+      if (disparosEmAndamentoRef.current.has(alerta.id)) {
         novos.push(alerta);
         return;
       }
@@ -248,13 +269,15 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       }
 
       if (cruzou) {
+        // Trava o ID antes de qualquer side-effect para evitar reentrância
+        disparosEmAndamentoRef.current.add(alerta.id);
         idsAtingidos.push(alerta.id);
         novos.push({
           ...alerta,
           atingido: true,
           atingidoEm: new Date().toISOString(),
         });
-        // Gera notificação
+        // Gera notificação (uma única vez por alerta criado)
         adicionarNotif({
           tipo: "alerta",
           titulo: `Alerta de preço: ${alerta.ticker}`,
@@ -272,7 +295,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       setEstado((prev) => ({ ...prev, alertas: novos }));
     }
 
-    // Atualiza snapshot
+    // Atualiza snapshot dos preços anteriores para a próxima verificação
     ativos.forEach((a) => {
       precosAnterioresRef.current[a.ticker] = a.preco;
     });
@@ -370,8 +393,13 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       const ativo = ativos.find((a) => a.ticker === ticker);
       if (!ativo) return { ok: false, erro: "Ativo não encontrado" };
       const custo = ativo.preco * quantidade;
-      if (custo > estado.caixa)
-        return { ok: false, erro: "Saldo insuficiente" };
+      if (custo > estado.caixa) {
+        const falta = custo - estado.caixa;
+        return {
+          ok: false,
+          erro: `Saldo insuficiente: faltam ${falta.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} para realizar essa operação`,
+        };
+      }
 
       setEstado((prev) => {
         const existente = prev.posicoes.find((p) => p.ticker === ticker);

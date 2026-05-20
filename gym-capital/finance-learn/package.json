@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "cross-env JWT_SECRET=test-secret-key-only-for-tests-min-32-characters tsx src/tests/gym-capital.test.ts",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"
@@ -26,9 +27,11 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
+    "cross-env": "^7.0.3",
     "postcss": "^8.4.39",
     "prisma": "^5.22.0",
     "tailwindcss": "^3.4.6",
+    "tsx": "^4.19.2",
     "typescript": "^5.5.3"
   }
 }

@@ -6,6 +6,7 @@ import { SUGESTOES_METAS } from "@/data/expense-categories";
 import { formatBRL, classNames } from "@/utils/format";
 import type { CategoriaMeta, VincularMeta, Meta } from "@/types";
 import { Portal } from "./Portal";
+import { MoneyInput } from "@/components/common/MoneyInput";
 
 interface Props {
   metaInicial?: Meta;
@@ -179,14 +180,11 @@ export function MetaModal({ metaInicial, onClose }: Props) {
               />
             </Field>
 
-            <Field label="Valor alvo (R$)">
-              <input
-                type="text"
-                inputMode="decimal"
+            <Field label="Valor alvo">
+              <MoneyInput
                 value={valorAlvo}
-                onChange={(e) => setValorAlvo(e.target.value)}
+                onValueChange={setValorAlvo}
                 placeholder="0,00"
-                className="w-full bg-navy-800 border border-rule rounded-md px-3 py-2.5 text-sm num focus:border-brand focus:outline-none"
               />
             </Field>
 

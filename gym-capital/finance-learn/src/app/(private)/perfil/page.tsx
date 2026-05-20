@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/state/auth";
 import { useI18n } from "@/state/i18n";
 import { usePortfolio } from "@/state/portfolio";
@@ -9,7 +9,7 @@ import { EditarPerfilModal } from "@/components/modals/EditarPerfilModal";
 import { UserAvatar } from "@/components/common/UserAvatar";
 
 export default function PerfilPage() {
-  const { usuario } = useAuth();
+  const { usuario, refresh, carregando } = useAuth();
   const { t, formatarMoeda } = useI18n();
   const {
     estado,
@@ -19,11 +19,72 @@ export default function PerfilPage() {
     rendimentoPercentual,
   } = usePortfolio();
   const [modalAberto, setModalAberto] = useState(false);
+  // Detecta carregamento muito longo (provável falha de conexão com o banco)
+  const [demorouMuito, setDemorouMuito] = useState(false);
+
+  // Garante que os dados do usuário estão atualizados ao abrir a página.
+  // Isso evita exibir informações obsoletas vindas do SSR caso o usuário
+  // tenha editado o perfil em outra aba ou recém-feito login.
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // Se o usuário ainda não chegou após 5 segundos, mostra mensagem clara
+  // indicando que pode haver problema de conexão (em vez de spinner eterno)
+  useEffect(() => {
+    if (usuario) {
+      setDemorouMuito(false);
+      return;
+    }
+    const t = setTimeout(() => setDemorouMuito(true), 5000);
+    return () => clearTimeout(t);
+  }, [usuario]);
 
   if (!usuario) {
     return (
-      <div className="glass-card rounded-xl p-6 text-center text-ink-muted">
-        {t("msg.carregandoPerfil")}
+      <div className="glass-card rounded-xl p-8 text-center">
+        {!demorouMuito ? (
+          <div className="inline-flex items-center gap-2 text-ink-muted">
+            <span className="w-4 h-4 border-2 border-brand/30 border-t-brand rounded-full animate-spin" />
+            {t("msg.carregandoPerfil")}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex justify-center text-down">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 9v4M12 17h.01M10.3 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <div className="text-sm font-semibold text-ink">
+              Não conseguimos carregar seus dados
+            </div>
+            <p className="text-xs text-ink-muted max-w-md mx-auto leading-relaxed">
+              Isso pode acontecer se a conexão com o banco de dados estiver
+              indisponível ou se sua sessão expirou. Tente recarregar a página.
+              Se o problema persistir, faça login novamente.
+            </p>
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <button
+                onClick={() => window.location.reload()}
+                className="text-xs px-3 py-2 bg-brand hover:bg-brand-hover text-white rounded-md transition-colors font-medium"
+              >
+                Recarregar página
+              </button>
+              <a
+                href="/login"
+                className="text-xs px-3 py-2 border border-rule hover:border-ink-muted text-ink-muted rounded-md transition-colors"
+              >
+                Ir para login
+              </a>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
