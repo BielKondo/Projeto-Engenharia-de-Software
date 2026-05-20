@@ -246,7 +246,7 @@ async function rodarTestes() {
 
   // RESUMO FINAL
   console.log("\n============================================");
-  console.log(`RESULTADO: ${totalPassou} testes passaram, ${totalFalhou} falharam`);
+  console.log(`Resultado: ${totalPassou} testes passaram, ${totalFalhou} falharam`);
   console.log("============================================");
 
   if (totalFalhou > 0) {
